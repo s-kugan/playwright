@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe.configure({ retries: 2 });
  
-test('@straightOrder Client App login', async ({ page }) => {
+test('@Order Client App login', async ({ page }) => {
    //js file- Login js, DashboardPage
    const email = "anshika@gmail.com";
    const productName = 'ZARA COAT 3';
