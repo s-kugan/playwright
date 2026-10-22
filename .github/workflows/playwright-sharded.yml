@@ -1,0 +1,77 @@
+name: Playwright Sharded Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: "Test tag or title filter (passed to --grep)"
+        required: false
+        default: "@Order"
+
+# Shares the group with playwright.yml: the tests use one account and its server-side cart.
+concurrency:
+  group: playwright-order-tests
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: test (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3, 4]
+        shardTotal: [4]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Microsoft Edge
+        run: npx playwright install --with-deps msedge
+      - name: Run Playwright tests (shard)
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          USER_EMAIL: ${{ secrets.USER_EMAIL }}
+          USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
+        run: >
+          npx playwright test --grep "${{ inputs.grep }}"
+          --config playwright.configone.ts --project=Edge --workers=2
+          --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+          --reporter=blob
+      - name: Upload blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shardIndex }}
+          path: blob-report/
+          retention-days: 1
+
+  merge-reports:
+    if: ${{ !cancelled() }}
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+      - name: Install dependencies
+        run: npm ci
+      - name: Download blob reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+      - name: Merge into HTML report
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+      - name: Upload final HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-sharded-report
+          path: playwright-report/
+          retention-days: 30
