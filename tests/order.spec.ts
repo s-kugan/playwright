@@ -17,7 +17,8 @@ test(`@Order Place order test ${datainput.productName}`, async ({ page }) => {
     await loginPage.navigateTo(process.env.BASE_URL!);
     await loginPage.login(process.env.USER_EMAIL!, process.env.USER_PASSWORD!);
     await page.waitForLoadState('networkidle');
-   
+    //wait for metyhod works when the element returns single element
+       
     await dashboardPage.searchProductAddCart(datainput.productName);
     await dashboardPage.goToCart();
 
